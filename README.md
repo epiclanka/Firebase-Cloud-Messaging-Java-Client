@@ -14,3 +14,14 @@ Simple example to send a push message
         });
         return response;
     }
+
+	
+Simple example to broadcast a data message to a topic
+
+	public static Future<Response> broadcastTopic(String topic, JsonObject body) {
+			return EXECUTOR.submit(()->{
+				
+			System.out.println("Broadcasting topic :" + topic + " " + body);
+			return SENDER.broadcastDataToTopic(topic, body);
+			});
+	}

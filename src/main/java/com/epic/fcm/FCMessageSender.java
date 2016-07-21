@@ -179,14 +179,14 @@ public class FCMessageSender {
         return finalObjBuilder;
     }
 
-    public Response broadcastDataToSingleTopic(String topic, JsonObject data) {
+    public Response broadcastDataToTopic(String topic, JsonObject data) {
         WebTarget target = createTarget();
         JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
         Response res = createResponse(target, finalObjBuilder);
         return res;
     }
 
-    public Response broadcastDataToSingleTopic(String topic, JsonObject data, OptionalParams params) {
+    public Response broadcastDataToTopic(String topic, JsonObject data, OptionalParams params) {
         WebTarget target = createTarget();
         JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
         setOptions(finalObjBuilder, params);
