@@ -62,6 +62,7 @@ public class FCMessageSender {
                 tokenArrayBuilder.add(tokens[i]);
             }
             finalObjBuilder.add("registration_ids", tokenArrayBuilder);
+            finalObjBuilder.add("content_available", true); //for IOS when a notification or message is sent and this is set to true, an inactive client app is awoken
 
         } else {
             finalObjBuilder.add("to", tokens[0]);
@@ -80,6 +81,7 @@ public class FCMessageSender {
         JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
         finalObjBuilder.add("to", "/topics/" + topic);
         finalObjBuilder.add("data", data);
+        finalObjBuilder.add("content_available",true); //for IOS when a notification or message is sent and this is set to true, an inactive client app is awoken
         Response res = target.request()
                 .header("Authorization", "key=" + SERVER_KEY)
                 .post(Entity.entity(finalObjBuilder.build(), MediaType.APPLICATION_JSON));
