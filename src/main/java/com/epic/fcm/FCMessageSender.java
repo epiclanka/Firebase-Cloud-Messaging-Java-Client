@@ -233,5 +233,14 @@ public class FCMessageSender {
         Response res = createResponse(target, finalObjBuilder);
         return res;
     }
+    public Response broadcastDataToConditionalTopic(String conditional_topic, JsonObject data, OptionalParams params) {
+        WebTarget target = createTarget();
+        JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
+        finalObjBuilder.add("condition", conditional_topic);
+        setOptions(finalObjBuilder, params);
+        finalObjBuilder.add("data", data);
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
 
 }
