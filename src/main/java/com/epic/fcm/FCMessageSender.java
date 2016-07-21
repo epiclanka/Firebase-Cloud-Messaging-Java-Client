@@ -10,8 +10,6 @@ package com.epic.fcm;
  * @author thilina_h
  */
 import java.util.EnumMap;
-import java.util.Map.Entry;
-import java.util.Set;
 import javax.ws.rs.client.*;
 import javax.ws.rs.core.Response;
 import javax.json.*;
