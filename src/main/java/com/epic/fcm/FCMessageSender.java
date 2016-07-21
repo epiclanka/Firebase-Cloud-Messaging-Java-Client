@@ -9,6 +9,9 @@ package com.epic.fcm;
  *
  * @author thilina_h
  */
+import java.util.EnumMap;
+import java.util.Map.Entry;
+import java.util.Set;
 import javax.ws.rs.client.*;
 import javax.ws.rs.core.Response;
 import javax.json.*;
@@ -23,23 +26,107 @@ public class FCMessageSender {
         this.SERVER_KEY = SERVER_KEY;
     }
 
-    public Response sendMessage(String token, String title, String text) {
+    public static class OptionalParams {
+
+        /**
+         * please follow
+         * https://firebase.google.com/docs/cloud-messaging/http-server-ref#params
+         */
+        public enum Options {
+
+            COLLAPS_KEY("collapse_key"), PRIORITY("priority"), DELAY_WHILE_IDLE("delay_while_idle"),
+            TIME_TO_LIVE("time_to_live"), RESTRICTED_PKG_NAME("restricted_package_name");
+            private final String param;
+            public static final String PRIORITY_HIGH = "high";
+            public static final String PRIORITY_NORMAL = "normal";
+
+            private Options(String param) {
+                this.param = param;
+            }
+
+            String getParamName() {
+                return param;
+            }
+        }
+
+        private final EnumMap<Options, Object> map = new EnumMap<>(Options.class);
+
+        public void setOption(Options option, String value) {
+            map.put(option, value);
+        }
+
+        public void setOption(Options option, boolean value) {
+            map.put(option, value);
+        }
+
+        public void setOption(Options option, int value) {
+            map.put(option, value);
+        }
+
+        EnumMap<Options, Object> getOptionMap() {
+            return map;
+        }
+    }
+
+    private void setOptions(JsonObjectBuilder builder, OptionalParams params) {
+        if (params != null && builder != null) {
+            EnumMap<OptionalParams.Options, Object> param_map = params.getOptionMap();
+
+            param_map.entrySet().stream().forEach((option_value) -> {
+                String param_name = option_value.getKey().getParamName();
+                Object value = option_value.getValue();
+                if (value instanceof String) {
+                    builder.add(param_name, (String) value);
+                } else if (value instanceof Integer) {
+                    builder.add(param_name, (Integer) value);
+                } else if (value instanceof Boolean) {
+                    builder.add(param_name, (Boolean) value);
+                } else if (value != null) {
+                    System.out.println("Unknown type for param key :" + param_name + " Unsupported Class:" + String.valueOf(value.getClass().toString()));
+                }
+            });
+        }
+    }
+
+    private WebTarget createTarget() {
         Client client = ClientBuilder.newClient();
-
         WebTarget target = client.target(URL);
-        JsonObjectBuilder notification = Json.createObjectBuilder();
-        notification.add("title", title);
-        notification.add("text", text);
+        return target;
+    }
 
-        JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
-        finalObjBuilder.add("to", token);
-        finalObjBuilder.add("notification", notification);
-
+    private Response createResponse(WebTarget target, JsonObjectBuilder finalObjBuilder) {
         Response res = target.request()
                 .header("Authorization", "key=" + SERVER_KEY)
                 .post(Entity.entity(finalObjBuilder.build(), MediaType.APPLICATION_JSON));
-
         return res;
+    }
+
+    public Response sendNotification(String token, String title, String text) {
+        WebTarget target = createTarget();
+        JsonObjectBuilder notification_body_builder = createNotificationBody(title, text);
+        JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
+        finalObjBuilder.add("to", token);
+        finalObjBuilder.add("notification", notification_body_builder);
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
+
+    public Response sendNotification(String token, String title, String text, OptionalParams params) {
+        WebTarget target = createTarget();
+        JsonObjectBuilder notification_body_builder = createNotificationBody(title, text);
+        JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
+        finalObjBuilder.add("to", token);
+        finalObjBuilder.add("notification", notification_body_builder);
+        setOptions(finalObjBuilder, params);
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
+
+    private JsonObjectBuilder createNotificationBody(String title, String text) {
+        JsonObjectBuilder notification = Json.createObjectBuilder();
+        notification.add("title", title);
+        notification.add("text", text);
+        return notification;
     }
 
     /**
@@ -49,49 +136,78 @@ public class FCMessageSender {
      * @param tokens
      * @return
      */
-    public Response sendData(JsonObject data, String... tokens) {
-        Client client = ClientBuilder.newClient();
-
-        WebTarget target = client.target(URL);
+    public Response sendDataToTokens(JsonObject data, String... tokens) {
+        WebTarget target = createTarget();
         int tokens_len = tokens.length;
-        JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
+        JsonObjectBuilder finalObjBuilder = createTargetRequestHeader(tokens_len, tokens);
+        finalObjBuilder.add("content_available", true); //for IOS when a notification or message is sent and this is set to true, an inactive client app is awoken
+        finalObjBuilder.add("data", data);
 
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
+
+    /**
+     * tokens range [1,1000]
+     *
+     * @param data
+     * @param params
+     * @param tokens
+     * @return
+     */
+    public Response sendDataToTokens(JsonObject data, OptionalParams params, String... tokens) {
+        WebTarget target = createTarget();
+        int tokens_len = tokens.length;
+        JsonObjectBuilder finalObjBuilder = createTargetRequestHeader(tokens_len, tokens);
+        finalObjBuilder.add("content_available", true); //for IOS when a notification or message is sent and this is set to true, an inactive client app is awoken
+        setOptions(finalObjBuilder, params);
+        finalObjBuilder.add("data", data);
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
+
+    private JsonObjectBuilder createTargetRequestHeader(int tokens_len, String[] tokens) {
+        JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
         if (tokens_len > 1) {
             JsonArrayBuilder tokenArrayBuilder = Json.createArrayBuilder();
             for (int i = 0; i < 1000 && i < tokens_len; i++) {
                 tokenArrayBuilder.add(tokens[i]);
             }
             finalObjBuilder.add("registration_ids", tokenArrayBuilder);
-            finalObjBuilder.add("content_available", true); //for IOS when a notification or message is sent and this is set to true, an inactive client app is awoken
 
         } else {
             finalObjBuilder.add("to", tokens[0]);
         }
-        finalObjBuilder.add("data", data);
+        return finalObjBuilder;
+    }
 
-        Response res = target.request()
-                .header("Authorization", "key=" + SERVER_KEY)
-                .post(Entity.entity(finalObjBuilder.build(), MediaType.APPLICATION_JSON));
+    public Response broadcastDataToSingleTopic(String topic, JsonObject data) {
+        WebTarget target = createTarget();
+        JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
+        Response res = createResponse(target, finalObjBuilder);
         return res;
     }
 
-    public Response broadcastSingleTopic(String topic, JsonObject data) {
-        Client client = ClientBuilder.newClient();
-        WebTarget target = client.target(URL);
+    public Response broadcastDataToSingleTopic(String topic, JsonObject data, OptionalParams params) {
+        WebTarget target = createTarget();
+        JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
+        setOptions(finalObjBuilder, params);
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
+
+    private JsonObjectBuilder createTopicsDataBody(String topic, JsonObject data) {
         JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
         finalObjBuilder.add("to", "/topics/" + topic);
         finalObjBuilder.add("data", data);
-        finalObjBuilder.add("content_available",true); //for IOS when a notification or message is sent and this is set to true, an inactive client app is awoken
-        Response res = target.request()
-                .header("Authorization", "key=" + SERVER_KEY)
-                .post(Entity.entity(finalObjBuilder.build(), MediaType.APPLICATION_JSON));
-        return res;
+        finalObjBuilder.add("content_available", true); //for IOS when a notification or message is sent and this is set to true, an inactive client app is awoken
+        return finalObjBuilder;
     }
 
     /**
      * To send to combinations of multiple topics, the app server sets the
-     * condition key with conditions expressed in the following format: 
-     * 
+     * condition key with conditions expressed in the following format:
+     *
      * 'TopicA' in topics && ('TopicB' in topics || 'TopicC' in topics)
      *
      * FCM first evaluates any conditions in parentheses, and then evaluates the
@@ -109,15 +225,12 @@ public class FCMessageSender {
      * @param data
      * @return
      */
-    public Response broadcastConditionalTopic(String conditional_topic, JsonObject data) {
-        Client client = ClientBuilder.newClient();
-        WebTarget target = client.target(URL);
+    public Response broadcastDataToConditionalTopic(String conditional_topic, JsonObject data) {
+        WebTarget target = createTarget();
         JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
         finalObjBuilder.add("condition", conditional_topic);
         finalObjBuilder.add("data", data);
-        Response res = target.request()
-                .header("Authorization", "key=" + SERVER_KEY)
-                .post(Entity.entity(finalObjBuilder.build(), MediaType.APPLICATION_JSON));
+        Response res = createResponse(target, finalObjBuilder);
         return res;
     }
 
