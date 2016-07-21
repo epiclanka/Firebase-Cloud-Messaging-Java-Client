@@ -3,7 +3,7 @@ A FCM  Client library for java using JAX-RS Client
 
 Simple example to send a push message
 
-private static final FCMessageSender SENDER = new FCMessageSender("YourServerKey");
+	private static final FCMessageSender SENDER = new FCMessageSender("YourServerKey");
     private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool();
 
 	//Asynchronusly send notification
