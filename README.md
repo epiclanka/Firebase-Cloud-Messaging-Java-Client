@@ -25,3 +25,14 @@ Simple example to broadcast a data message to a topic
 			return SENDER.broadcastDataToTopic(topic, body);
 			});
 	}
+	
+How to broadcast a data message with optional parameters
+
+	public static Future<Response> broadcastTopicWith_TTL(String topic, JsonObject body, int time_to_live_seconds) {
+			return EXECUTOR.submit(()->{
+			OptionalParams params= new OptionalParams();
+			params.setOption(FCMessageSender.OptionalParams.Options.TIME_TO_LIVE, ttl_in_seconds);	
+			System.out.println("Broadcasting topic :" + topic + " " + body);
+			return SENDER.broadcastDataToTopic(topic, body, params);
+			});
+	}
