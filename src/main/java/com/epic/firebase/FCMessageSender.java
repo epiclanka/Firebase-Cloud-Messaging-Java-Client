@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package com.epic.fcm;
+package com.epic.firebase;
 
 /**
  *
@@ -13,12 +13,15 @@ import java.util.EnumMap;
 import javax.ws.rs.client.*;
 import javax.ws.rs.core.Response;
 import javax.json.*;
+import javax.ws.rs.core.Configuration;
+import javax.ws.rs.core.Configurable;
 import javax.ws.rs.core.MediaType;
 
 public class FCMessageSender {
 
     protected final String SERVER_KEY;
     private final String URL = "https://fcm.googleapis.com/fcm/send";
+
 
     public FCMessageSender(String SERVER_KEY) {
         this.SERVER_KEY = SERVER_KEY;
@@ -69,7 +72,7 @@ public class FCMessageSender {
     private void setOptions(JsonObjectBuilder builder, OptionalParams params) {
         if (params != null && builder != null) {
             EnumMap<OptionalParams.Options, Object> param_map = params.getOptionMap();
-
+          
             param_map.entrySet().stream().forEach((option_value) -> {
                 String param_name = option_value.getKey().getParamName();
                 Object value = option_value.getValue();
@@ -178,7 +181,22 @@ public class FCMessageSender {
         }
         return finalObjBuilder;
     }
-
+   
+    public Response broadcastDataNotificationToTopic(String topic, String notif_title, String notif_text, JsonObject data) {
+        WebTarget target = createTarget();
+        JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
+        finalObjBuilder.add("notification", createNotificationBody(notif_title, notif_text));
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
+    public Response broadcastDataNotificationToTopic(String topic, String notif_title, String notif_text, JsonObject data,OptionalParams params) {
+        WebTarget target = createTarget();
+        JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
+        finalObjBuilder.add("notification", createNotificationBody(notif_title, notif_text));
+        setOptions(finalObjBuilder, params);
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
     public Response broadcastDataToTopic(String topic, JsonObject data) {
         WebTarget target = createTarget();
         JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
