@@ -6,22 +6,22 @@
 package com.epic.firebase;
 
 /**
- *
  * @author thilina_h
  */
+
 import java.util.EnumMap;
+import java.util.List;
 import javax.ws.rs.client.*;
 import javax.ws.rs.core.Response;
 import javax.json.*;
 import javax.ws.rs.core.Configuration;
 import javax.ws.rs.core.Configurable;
 import javax.ws.rs.core.MediaType;
-
+@Deprecated
 public class FCMessageSender {
 
     protected final String SERVER_KEY;
     private final String URL = "https://fcm.googleapis.com/fcm/send";
-
 
     public FCMessageSender(String SERVER_KEY) {
         this.SERVER_KEY = SERVER_KEY;
@@ -72,7 +72,7 @@ public class FCMessageSender {
     private void setOptions(JsonObjectBuilder builder, OptionalParams params) {
         if (params != null && builder != null) {
             EnumMap<OptionalParams.Options, Object> param_map = params.getOptionMap();
-          
+
             param_map.entrySet().stream().forEach((option_value) -> {
                 String param_name = option_value.getKey().getParamName();
                 Object value = option_value.getValue();
@@ -98,7 +98,7 @@ public class FCMessageSender {
     private Response createResponse(WebTarget target, JsonObjectBuilder finalObjBuilder) {
         Response res = target.request()
                 .header("Authorization", "key=" + SERVER_KEY)
-                .post(Entity.entity(finalObjBuilder.build(), MediaType.APPLICATION_JSON));
+                .post(Entity.entity(finalObjBuilder.build().toString(), MediaType.APPLICATION_JSON));
         return res;
     }
 
@@ -108,6 +108,26 @@ public class FCMessageSender {
         JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
         finalObjBuilder.add("to", token);
         finalObjBuilder.add("notification", notification_body_builder);
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
+    public Response sendNotification(List<String> token, String title, String text) {
+        WebTarget target = createTarget();
+        JsonObjectBuilder notification_body_builder = createNotificationBody(title, text);
+        createTargetRequestHeader(notification_body_builder, token.size(),token.toArray(new String[0]));
+        JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
+        finalObjBuilder.add("notification", notification_body_builder);
+        Response res = createResponse(target, finalObjBuilder);
+        return res;
+    }
+    public Response sendNotification(List<String> token, String title, String text, JsonObject data) {
+        WebTarget target = createTarget();
+        JsonObjectBuilder notification_body_builder = createNotificationBody(title, text);
+        createTargetRequestHeader(notification_body_builder, token.size(),token.toArray(new String[0]));
+        JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
+        finalObjBuilder.add("notification", notification_body_builder);
+        finalObjBuilder.add("content_available", true); //for IOS when a notification or message is sent and this is set to true, an inactive client app is awoken
+        finalObjBuilder.add("data", data);
         Response res = createResponse(target, finalObjBuilder);
         return res;
     }
@@ -126,7 +146,7 @@ public class FCMessageSender {
     private JsonObjectBuilder createNotificationBody(String title, String text) {
         JsonObjectBuilder notification = Json.createObjectBuilder();
         notification.add("title", title);
-        notification.add("text", text);
+        notification.add("body", text);
         return notification;
     }
 
@@ -167,8 +187,18 @@ public class FCMessageSender {
         return res;
     }
 
-    private JsonObjectBuilder createTargetRequestHeader(int tokens_len, String[] tokens) {
+    private JsonObjectBuilder createTargetRequestHeader(int tokens_len, String... tokens) {
         JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
+        addRegIDs(tokens_len, finalObjBuilder, tokens);
+        return finalObjBuilder;
+    }
+
+    private JsonObjectBuilder createTargetRequestHeader(JsonObjectBuilder finalObjBuilder, int tokens_len, String... tokens) {
+        addRegIDs(tokens_len, finalObjBuilder, tokens);
+        return finalObjBuilder;
+    }
+
+    private void addRegIDs(int tokens_len, JsonObjectBuilder finalObjBuilder, String[] tokens) {
         if (tokens_len > 1) {
             JsonArrayBuilder tokenArrayBuilder = Json.createArrayBuilder();
             for (int i = 0; i < 1000 && i < tokens_len; i++) {
@@ -179,9 +209,17 @@ public class FCMessageSender {
         } else {
             finalObjBuilder.add("to", tokens[0]);
         }
-        return finalObjBuilder;
     }
-   
+
+
+    public Response broadcastNotificationToTopic(String topic, String notif_title, String notif_text, OptionalParams params) {
+        return sendNotification("/topics/" + topic, notif_title, notif_title, params);
+    }
+
+    public Response broadcastHybridToTopic(String topic, String notif_title, String notif_text, JsonObject data, OptionalParams params) {
+        return sendNotification("/topics/" + topic, notif_title, notif_title, params);
+    }
+
     public Response broadcastDataNotificationToTopic(String topic, String notif_title, String notif_text, JsonObject data) {
         WebTarget target = createTarget();
         JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
@@ -189,7 +227,8 @@ public class FCMessageSender {
         Response res = createResponse(target, finalObjBuilder);
         return res;
     }
-    public Response broadcastDataNotificationToTopic(String topic, String notif_title, String notif_text, JsonObject data,OptionalParams params) {
+
+    public Response broadcastDataNotificationToTopic(String topic, String notif_title, String notif_text, JsonObject data, OptionalParams params) {
         WebTarget target = createTarget();
         JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
         finalObjBuilder.add("notification", createNotificationBody(notif_title, notif_text));
@@ -197,6 +236,7 @@ public class FCMessageSender {
         Response res = createResponse(target, finalObjBuilder);
         return res;
     }
+
     public Response broadcastDataToTopic(String topic, JsonObject data) {
         WebTarget target = createTarget();
         JsonObjectBuilder finalObjBuilder = createTopicsDataBody(topic, data);
@@ -249,6 +289,7 @@ public class FCMessageSender {
         Response res = createResponse(target, finalObjBuilder);
         return res;
     }
+
     public Response broadcastDataToConditionalTopic(String conditional_topic, JsonObject data, OptionalParams params) {
         WebTarget target = createTarget();
         JsonObjectBuilder finalObjBuilder = Json.createObjectBuilder();
