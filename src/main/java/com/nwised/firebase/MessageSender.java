@@ -31,7 +31,10 @@ public class MessageSender {
 
     private String getAccessToken() {
         try {
-            googleCredential.refreshToken();
+            final Long expiresInSeconds = googleCredential.getExpiresInSeconds();
+            if(expiresInSeconds==null || expiresInSeconds<10) {
+                googleCredential.refreshToken();
+            }
         } catch (IOException e) {
             Logger.getLogger(MessageSender.class.getName()).log(Level.SEVERE, "Failed refreshing Google Auth2.0 token",e);
         }
